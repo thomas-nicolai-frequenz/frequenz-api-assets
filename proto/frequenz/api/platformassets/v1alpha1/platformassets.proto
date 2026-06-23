@@ -64,10 +64,6 @@ service PlatformAssetsService {
   rpc ListGridpoolEnergySchedules(ListGridpoolEnergySchedulesRequest)
       returns (ListGridpoolEnergySchedulesResponse);
 
-  // Lists market-topology relations within the current enterprise scope.
-  rpc ListMarketTopologyRelations(ListMarketTopologyRelationsRequest)
-      returns (ListMarketTopologyRelationsResponse);
-
   // Returns metadata for a specific microgrid.
   rpc GetMicrogrid(GetMicrogridRequest) returns (GetMicrogridResponse);
 
@@ -88,6 +84,11 @@ service PlatformAssetsService {
   // Lists sensors for a specific microgrid.
   rpc ListMicrogridSensors(ListMicrogridSensorsRequest)
       returns (ListMicrogridSensorsResponse);
+
+  // Lists Microgrid-to-Market-Location links within the current enterprise
+  // scope.
+  rpc ListMicrogridMarketLinks(ListMicrogridMarketLinksRequest)
+      returns (ListMicrogridMarketLinksResponse);
 }
 
 // Describes the direction of a scheduled energy exchange from the perspective
@@ -103,141 +104,6 @@ enum GridpoolEnergyScheduleDirection {
   // EXPORT: Energy is exported from the Frequenz balancing group to a
   // third-party balancing group.
   GRIDPOOL_ENERGY_SCHEDULE_DIRECTION_EXPORT = 2;
-}
-
-// Describes a market-related use case for which a relation can participate.
-enum MarketParticipationType {
-  // UNSPECIFIED: Unspecified participation type.
-  MARKET_PARTICIPATION_TYPE_UNSPECIFIED = 0;
-
-  // ENERGY_TRADING: The relation participates in energy trading, supply,
-  // balancing, or settlement of scheduled and measured energy.
-  MARKET_PARTICIPATION_TYPE_ENERGY_TRADING = 1;
-
-  // ANCILLARY_SERVICES: The relation participates in ancillary services or
-  // flex-market services, such as FCR, aFRR, or other grid-operator services.
-  MARKET_PARTICIPATION_TYPE_FLEX_MARKETS = 2;
-}
-
-// Describes the participation of a market-topology relation in a specific use
-// case.
-message MarketParticipation {
-  // The use case for which this relation participates.
-  MarketParticipationType type = 1;
-
-  // Optional. Configured validity interval for this participation.
-  //
-  // If omitted, the participation has no explicit validity interval in the
-  // returned data. The interpretation of an omitted interval is service-defined
-  // and may depend on the participation type and backend configuration.
-  //
-  // If set, the interval describes when this relation is valid for the given
-  // use case. The interval is inclusive at `start_time` and exclusive at
-  // `end_time`.
-  //
-  // Updating `end_time` can be used to end a participation. Updating
-  // `start_time` can be used to move a participation into the future.
-  frequenz.api.common.v1alpha8.types.Interval validity_period = 2;
-}
-
-// Describes a market-topology relation between a Gridpool, Microgrid, and
-// Market Location.
-//
-// A MarketTopologyRelation is the canonical relationship record that describes
-// how official market-facing metering points, technical Microgrids, and
-// Gridpools are connected.
-//
-// A relation can exist without a Gridpool, in which case it links one
-// Microgrid to one Market Location for metering validation, reporting
-// comparison, or local optimization. A Microgrid can have multiple such
-// relations.
-//
-// When `gridpool_id` is set, the relation describes participation in a
-// Gridpool context. In that case, `delivery_area` is required and
-// use-case-specific participations can describe energy trading, ancillary
-// services, or other market-related use cases.
-//
-// A Microgrid-only Gridpool relation is a special case. It is typically used
-// when the Microgrid participates technically while the matching Market
-// Location is represented outside Frequenz, for example through a third-party
-// balancing group, or when a Market Location is temporarily excluded due to
-// metering/reporting issues.
-//
-// !!! note "Multiple Market Locations per Microgrid"
-//     A Microgrid can be associated with multiple Market Locations.
-//
-//     This is common in markets where different Market Locations represent
-//     different metering or settlement roles. For example, a Microgrid can have
-//     separate Market Locations for import and export. It can also have
-//     multiple export Market Locations, for example when different feed-in
-//     assets, such as wind and solar generation, are assigned to different
-//     subsidy, settlement, or regulatory regimes.
-//
-//     Each Microgrid-to-Market-Location association is represented as a
-//     separate MarketTopologyRelation.
-//
-// !!! important "Validation"
-//     A relation must contain at least two of `gridpool_id`, `microgrid_id`,
-//     and `market_location`.
-//
-//     If `gridpool_id` is unset, both `microgrid_id` and
-//     `market_location` must be set. In that case, the relation does
-//     not represent market participation, but the relation can remain as
-//     a Microgrid-to-Market-Location relation without Gridpool participation.
-//     Gridpool-specific fields, such as `delivery_area` and `participations`,
-//     no longer apply once `gridpool_id` is unset. If `gridpool_id` is set,
-//     `delivery_area` is required.
-//
-//     `participations` are only valid when `gridpool_id` is set.
-//
-//      If removing `gridpool_id` would leave only `microgrid_id` or only
-//     `market_location`, no valid relation remains.
-//
-message MarketTopologyRelation {
-  // Optional. The Microgrid associated with this relation.
-  //
-  // If `gridpool_id` is set, the Microgrid participates in the Gridpool
-  // context.
-  //
-  // If `gridpool_id` is unset, this field links the Microgrid to the Market
-  // Location for metering validation, reporting comparison, or local
-  // optimization.
-  optional uint64 microgrid_id = 1;
-
-  // Optional. The Market Location associated with this relation.
-  //
-  // If `gridpool_id` is set, the Market Location participates in the Gridpool
-  // context.
-  //
-  // If `gridpool_id` is unset, this field links the Market Location to the
-  // Microgrid without market participation.
-  frequenz.api.common.v1alpha8.grid.MarketLocation market_location = 2;
-
-  // Optional. The Gridpool associated with this relation.
-  //
-  // If set, this relation describes participation in a virtual balancing group.
-  //
-  // If unset, this relation describes only a Microgrid-to-Market-Location
-  // relationship without Gridpool participation.
-  optional uint64 gridpool_id = 3;
-
-  // Optional. Delivery area in which this relation applies.
-  //
-  // This field is required when `gridpool_id` is set, because the delivery area
-  // only has meaning in the Gridpool/balancing-group context.
-  //
-  // This field must be unset when `gridpool_id` is unset.
-  frequenz.api.common.v1alpha8.grid.DeliveryArea delivery_area = 4;
-
-  // Use-case-specific participations for this relation.
-  //
-  // Different use cases can become active at different times. For example,
-  // energy trading may start before ancillary services, or ancillary services
-  // may end while the Market Location remains associated for energy trading.
-  //
-  // Participations are only valid when `gridpool_id` is set. If `gridpool_id`
-  // is unset, this field must be empty.
-  repeated MarketParticipation participations = 5;
 }
 
 // A scheduled active-power value for one delivery period.
@@ -368,6 +234,44 @@ message GridpoolEnergySchedule {
   repeated GridpoolEnergyScheduleTimeSeriesEntry time_series = 11;
 }
 
+// Identifies the two endpoints of a Microgrid-to-Market-Location link.
+//
+// The endpoints describe the relationship between a technical Microgrid and a
+// market-facing metering or settlement identity.
+//
+// !!! important
+//     The same Microgrid can be linked to multiple Market Locations. This is
+//     common when import and export are represented by separate Market
+//     Locations, or when different feed-in assets are assigned to different
+//     settlement or regulatory regimes.
+//
+message MicrogridMarketLinkEndpoints {
+  // Microgrid associated with the Market Location.
+  uint64 microgrid_id = 1;
+
+  // Market Location associated with the Microgrid.
+  frequenz.api.common.v1alpha8.grid.MarketLocation market_location = 2;
+}
+
+// Links a Microgrid to a Market Location.
+//
+// A MicrogridMarketLink describes how a technical Microgrid is associated with
+// a market-facing metering or settlement identity.
+//
+// The link can exist independently of any Gridpool. Assigning this link to a
+// Gridpool is modeled separately through `GridpoolMember`.
+//
+// The link itself does not imply Gridpool membership and does not imply that
+// any Gridpool service is enabled.
+//
+message MicrogridMarketLink {
+  // Stable identifier of this Microgrid-to-Market-Location link.
+  uint64 microgrid_market_link_id = 1;
+
+  // Endpoints connected by this link.
+  MicrogridMarketLinkEndpoints link = 2;
+}
+
 // Request message for listing Gridpools within the current enterprise scope.
 message ListGridpoolsRequest {
   // Filters for selecting Gridpools.
@@ -492,71 +396,6 @@ message ListGridpoolEnergySchedulesResponse {
   // Schedules matching the request filters within the current enterprise
   // scope.
   repeated GridpoolEnergySchedule schedules = 2;
-}
-
-// Request message for listing market-topology relations within the current
-// enterprise scope.
-message ListMarketTopologyRelationsRequest {
-  // Filters for selecting market-topology relations.
-  //
-  // A relation must match all specified filter fields to be included in the
-  // response. The current enterprise scope is always applied in addition to
-  // these filters.
-  //
-  // !!! note "Filter Semantics"
-  //     Each repeated field is evaluated using logical OR.
-  //
-  //     Different filter fields are combined using logical AND.
-  //
-  //     If no filters are provided, all market-topology relations within the
-  //     current enterprise scope are returned.
-  //
-  message MarketTopologyRelationsFilter {
-    // Optional. Return only relations involving any of these Gridpools.
-    //
-    // If empty, no Gridpool-ID filtering is applied.
-    repeated uint64 gridpool_ids = 1;
-
-    // Optional. Return only relations involving any of these Microgrids.
-    //
-    // If empty, no Microgrid-ID filtering is applied.
-    repeated uint64 microgrid_ids = 2;
-
-    // Optional. Return only relations involving Market Locations whose ID
-    // values match any of these filters.
-    //
-    // This filter does not require callers to provide the Market Area. It is
-    // useful when the Market Location identifier is known, but the Market
-    // Area has not been resolved yet.
-    //
-    // If empty, no Market Location-ID filtering is applied.
-    repeated frequenz.api.common.v1alpha8.grid.MarketLocationIdValue
-        market_location_id_values = 3;
-
-    // Optional. Return only relations applying to any of these delivery areas.
-    //
-    // If empty, no delivery-area filtering is applied.
-    repeated frequenz.api.common.v1alpha8.grid.DeliveryArea delivery_areas = 4;
-
-    // Optional. Return only relations that include at least one participation
-    // with one of these types.
-    //
-    // If empty, no participation-type filtering is applied.
-    repeated MarketParticipationType participation_types = 5;
-  }
-
-  // Optional. Filtering criteria for narrowing the returned relations.
-  //
-  // If omitted, all market-topology relations within the current enterprise
-  // scope are returned.
-  MarketTopologyRelationsFilter filter = 1;
-}
-
-// Response message containing market-topology relations.
-message ListMarketTopologyRelationsResponse {
-  // Market-topology relations matching the request filters within the current
-  // enterprise scope.
-  repeated MarketTopologyRelation relations = 1;
 }
 
 // Request message for retrieving metadata for a specific microgrid.
@@ -765,4 +604,58 @@ message ListMicrogridSensorsResponse {
 
   // Sensors matching the request filters.
   repeated frequenz.api.common.v1alpha8.microgrid.sensors.Sensor sensors = 2;
+}
+
+// Request message for listing Microgrid-to-Market-Location links within the
+// current enterprise scope.
+message ListMicrogridMarketLinksRequest {
+  // Filters for selecting Microgrid-to-Market-Location links.
+  //
+  // A link must match all specified filter fields to be included in the
+  // response. The current enterprise scope is always applied in addition to
+  // these filters.
+  //
+  // !!! note "Filter Semantics"
+  //     Each repeated field is evaluated using logical OR.
+  //
+  //     Different filter fields are combined using logical AND.
+  //
+  //     If no filters are provided, all Microgrid-to-Market-Location links
+  //     within the current enterprise scope are returned.
+  //
+  message MicrogridMarketLinksFilter {
+    // Optional. Return only links involving any of these Microgrids.
+    //
+    // If empty, no Microgrid-ID filtering is applied.
+    repeated uint64 microgrid_ids = 1;
+
+    // Optional. Return only links involving Market Locations whose ID values
+    // match any of these filters.
+    //
+    // This filter does not require callers to provide the Market Area. It is
+    // useful when the Market Location identifier is known, but the Market Area
+    // has not been resolved yet.
+    //
+    // If empty, no Market Location-ID filtering is applied.
+    repeated frequenz.api.common.v1alpha8.grid.MarketLocationIdValue
+        market_location_id_values = 2;
+  }
+
+  // Optional. Filtering criteria for narrowing the returned links.
+  //
+  // If omitted, all Microgrid-to-Market-Location links within the current
+  // enterprise scope are returned.
+  MicrogridMarketLinksFilter filter = 1;
+}
+
+// Response message containing Microgrid-to-Market-Location links.
+//
+// The response contains links matching the requested filters within the current
+// enterprise scope. If no matching links are available in that scope, `links`
+// is empty.
+//
+message ListMicrogridMarketLinksResponse {
+  // Microgrid-to-Market-Location links matching the request filters within the
+  // current enterprise scope.
+  repeated MicrogridMarketLink links = 1;
 }
