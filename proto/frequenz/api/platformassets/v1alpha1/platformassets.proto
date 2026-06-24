@@ -39,7 +39,7 @@ import "google/protobuf/timestamp.proto";
 // Microgrid.
 //
 // Gridpools are defined by `frequenz.api.common.v1alpha8.gridpool.Gridpool`.
-// A Gridpool is a virtual // balancing, trading, and operating pool attached
+// A Gridpool is a virtual balancing, trading, and operating pool attached
 // to a parent balancing group, market account, or scheduling entity.
 //
 // This service does not embed the full Gridpool topology in the Gridpool
@@ -52,7 +52,7 @@ import "google/protobuf/timestamp.proto";
 // • Gridpool services: services or capabilities (use cases) enabled for a
 //   Gridpool or one of its members.
 // • Gridpool application variables: application configuration scoped to a
-//   Gridpool, Gridpool member, or Gridpool service.
+//   Gridpool application.
 // • Gridpool energy schedule: scheduled energy positions associated with a
 //   Gridpool.
 //
@@ -79,7 +79,7 @@ service PlatformAssetsService {
   rpc ListGridpoolMembers(ListGridpoolMembersRequest)
     returns (ListGridpoolMembersResponse);
 
-  // Lists services enabled for a specific Gridpool or its member
+  // Lists services enabled for a specific Gridpool or one of its members.
   rpc ListGridpoolServices(ListGridpoolServicesRequest)
       returns (ListGridpoolServicesResponse);
 
@@ -253,7 +253,35 @@ message GridpoolEnergySchedule {
   repeated GridpoolEnergyScheduleTimeSeriesEntry time_series = 11;
 }
 
-// Identifies the two endpoints of a Microgrid-to-Market-Location link.
+// Describes one member assigned to a Gridpool.
+//
+// A member can represent a Microgrid, a Market Location, or a
+// Microgrid-to-Market-Location link assigned to the Gridpool.
+//
+// !!! important
+//     At least one of `microgrid_id` or `market_location` must be set.
+//
+//     If `microgrid_id` and `market_location` both are set, it represents the
+//     Microgrid-to-Market-Location link assigned to the Gridpool. The
+//     Microgrid-to-Market-Location link itself can exist independently of
+//     any Gridpool. This membership only states that the linked pair is part
+//     of this Gridpool.
+//
+message GridpoolMember {
+  // Delivery area in which this Gridpool membership applies.
+  frequenz.api.common.v1alpha8.grid.DeliveryArea delivery_area = 1;
+
+  // Optional. Microgrid assigned to the Gridpool.
+  optional uint64 microgrid_id = 2;
+
+  // Optional. Market Location assigned to the Gridpool.
+  frequenz.api.common.v1alpha8.grid.MarketLocation market_location = 3;
+
+  // Timestamp when this Gridpool membership was created.
+  google.protobuf.Timestamp create_time = 4;
+}
+
+// Links a Microgrid to a Market Location.
 //
 // The endpoints describe the relationship between a technical Microgrid and a
 // market-facing metering or settlement identity.
@@ -264,31 +292,12 @@ message GridpoolEnergySchedule {
 //     Locations, or when different feed-in assets are assigned to different
 //     settlement or regulatory regimes.
 //
-message MicrogridMarketLinkEndpoints {
+message MicrogridMarketLink {
   // Microgrid associated with the Market Location.
   uint64 microgrid_id = 1;
 
   // Market Location associated with the Microgrid.
   frequenz.api.common.v1alpha8.grid.MarketLocation market_location = 2;
-}
-
-// Links a Microgrid to a Market Location.
-//
-// A MicrogridMarketLink describes how a technical Microgrid is associated with
-// a market-facing metering or settlement identity.
-//
-// The link can exist independently of any Gridpool. Assigning this link to a
-// Gridpool is modeled separately through `GridpoolMember`.
-//
-// The link itself does not imply Gridpool membership and does not imply that
-// any Gridpool service is enabled.
-//
-message MicrogridMarketLink {
-  // Stable identifier of this Microgrid-to-Market-Location link.
-  uint64 microgrid_market_link_id = 1;
-
-  // Endpoints connected by this link.
-  MicrogridMarketLinkEndpoints link = 2;
 }
 
 // Request message for listing Gridpools within the current enterprise scope.
@@ -429,6 +438,62 @@ message GetMicrogridResponse {
   frequenz.api.common.v1alpha8.microgrid.Microgrid microgrid = 1;
 }
 
+// Request message for listing members assigned to a specific Gridpool.
+message ListGridpoolMembersRequest {
+  // Filters for selecting Gridpool members.
+  //
+  // A member must match all specified filter fields to be included in the
+  // response.
+  //
+  // !!! note "Filter semantics"
+  //     Each repeated field is evaluated using logical OR.
+  //
+  //     Different filter fields are combined using logical AND.
+  //
+  //     If no filters are provided, all members of the requested Gridpool are
+  //     returned.
+  message GridpoolMembersFilter {
+    // Optional. Return only members in any of these delivery areas.
+    repeated frequenz.api.common.v1alpha8.grid.DeliveryArea delivery_areas = 1;
+
+    // Optional. Return only members involving any of these Microgrids.
+    //
+    // This matches Microgrid-only members and Microgrid-to-Market-Location link
+    // members whose endpoints include one of the specified Microgrids.
+    repeated uint64 microgrid_ids = 2;
+
+    // Optional. Return only members involving Market Locations whose ID values
+    // match any of these filters.
+    //
+    // This matches Market-Location-only members and
+    // Microgrid-to-Market-Location link members whose endpoints include one of
+    // the specified Market Locations.
+    //
+    // This filter does not require callers to provide the Market Area. It is
+    // useful when the Market Location identifier is known, but the Market Area
+    // has not been resolved yet.
+    repeated frequenz.api.common.v1alpha8.grid.MarketLocationIdValue
+        market_location_id_values = 3;
+  }
+
+  // Gridpool whose members should be listed.
+  uint64 gridpool_id = 1;
+
+  // Optional. Filtering criteria for narrowing the returned members.
+  //
+  // If omitted, all members of the requested Gridpool are returned.
+  GridpoolMembersFilter filter = 2;
+}
+
+// Response message containing members assigned to a Gridpool.
+message ListGridpoolMembersResponse {
+  // Gridpool the returned members belong to.
+  uint64 gridpool_id = 1;
+
+  // Gridpool members matching the request filters.
+  repeated GridpoolMember members = 2;
+}
+
 // Request message for listing microgrids within the current enterprise scope.
 message ListMicrogridsRequest {
   // Filters for selecting microgrids.
@@ -450,9 +515,8 @@ message ListMicrogridsRequest {
     // If empty, no microgrid-ID filtering is applied.
     repeated uint64 microgrid_ids = 1;
 
-    // Optional. Return only microgrids that are part of a market-topology
-    // relation involving any of these Gridpools within the current enterprise
-    // scope.
+    // Optional. Return only microgrids that are part of any of these
+    // Gridpools through a Gridpool membere.
     //
     // If empty, no Gridpool-ID filtering is applied.
     repeated uint64 gridpool_ids = 2;
