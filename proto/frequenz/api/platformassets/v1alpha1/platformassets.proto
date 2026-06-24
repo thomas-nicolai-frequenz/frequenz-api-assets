@@ -30,20 +30,31 @@ import "google/protobuf/timestamp.proto";
 //
 // The service exposes a platform-wide read model for resolving stable
 // identifiers, asset inventories, and relationships managed by the Frequenz
-// platform. This includes Gridpools, microgrids, Market Locations,
-// market-topology relations, Gridpool energy schedules, electrical component
-// inventories, sensor inventories, and the directed electrical component graph
-// within a microgrid.
+// platform.
 //
-// Gridpools represent virtual balancing-group structures used for market
-// interactions, such as electricity trading, scheduled energy exchange, and
-// flexibility or ancillary-service participation.
+// This includes Gridpools, Gridpool members, Gridpool services, Gridpool
+// application variables, Microgrid-to-Market-Location links, Gridpool
+// energy (transfer) schedules, Microgrids, electrical component inventories,
+// sensor inventories, and the directed electrical component graph within a
+// Microgrid.
 //
-// Market-topology relations describe how Gridpools, Microgrids, and Market
-// Locations are connected. These relations define which market-facing metering
-// points and technical Microgrids participate in a Gridpool context, and can
-// also describe Microgrid-to-Market-Location relations that exist without
-// market participation.
+// Gridpools are defined by `frequenz.api.common.v1alpha8.gridpool.Gridpool`.
+// A Gridpool is a virtual // balancing, trading, and operating pool attached
+// to a parent balancing group, market account, or scheduling entity.
+//
+// This service does not embed the full Gridpool topology in the Gridpool
+// message itself. Instead, Gridpool-related details are exposed as separate
+// resources:
+//
+// • Gridpool members: entities or relationships structurally assigned to a
+//   Gridpool, such as Market Locations, Microgrids, or distributed flexible
+//   asset groups.
+// • Gridpool services: services or capabilities (use cases) enabled for a
+//   Gridpool or one of its members.
+// • Gridpool application variables: application configuration scoped to a
+//   Gridpool, Gridpool member, or Gridpool service.
+// • Gridpool energy schedule: scheduled energy positions associated with a
+//   Gridpool.
 //
 // Microgrid asset metadata describes the technical structure of deployed or
 // planned microgrids, including electrical components, sensors, and the
@@ -63,6 +74,14 @@ service PlatformAssetsService {
   // Lists energy schedules for a specific Gridpool.
   rpc ListGridpoolEnergySchedules(ListGridpoolEnergySchedulesRequest)
       returns (ListGridpoolEnergySchedulesResponse);
+
+  // Lists members assigned to a specific Gridpool.
+  rpc ListGridpoolMembers(ListGridpoolMembersRequest)
+    returns (ListGridpoolMembersResponse);
+
+  // Lists services enabled for a specific Gridpool or its member
+  rpc ListGridpoolServices(ListGridpoolServicesRequest)
+      returns (ListGridpoolServicesResponse);
 
   // Returns metadata for a specific microgrid.
   rpc GetMicrogrid(GetMicrogridRequest) returns (GetMicrogridResponse);
