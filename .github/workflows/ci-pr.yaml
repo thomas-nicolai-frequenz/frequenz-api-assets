@@ -24,7 +24,7 @@ jobs:
         uses: frequenz-floss/gh-action-setup-git@f9d86a01228ee1cadaac5224d4d7626f1eb23f90 # v1.0.0
 
       - name: Fetch sources
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           submodules: true
 
@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - name: Run nox
-        uses: frequenz-floss/gh-action-nox@80a9845a59ffc71d27b9c41099eb6cb55bc7b671 # v1.1.1
+        uses: frequenz-floss/gh-action-nox@dff549a59033ed078a375a32b1f8f17beb7df690 # v1.1.2
         with:
           python-version: "3.11"
           nox-session: ci_checks_max
@@ -60,12 +60,12 @@ jobs:
         uses: frequenz-floss/gh-action-setup-git@f9d86a01228ee1cadaac5224d4d7626f1eb23f90 # v1.0.0
 
       - name: Fetch sources
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           submodules: true
 
       - name: Setup Python
-        uses: frequenz-floss/gh-action-setup-python-with-deps@b5707ffcd43ec4b24f2b24df712b43148cfa887f # v1.0.4
+        uses: frequenz-floss/gh-action-setup-python-with-deps@29d63cb1d7ce634b2f4b925044b1b193e1d5bddc # v1.0.6
         with:
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
           dependencies: .[dev-mkdocs]
